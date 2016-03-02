@@ -4,24 +4,16 @@ class Blast < Formula
   # doi "10.1016/S0022-2836(05)80360-2"
   # tag "bioinformatics"
 
-  url "ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.2.31/ncbi-blast-2.2.31+-src.tar.gz"
-  mirror "http://mirrors.vbi.vt.edu/mirrors/ftp.ncbi.nih.gov/blast/executables/blast+/2.2.31/ncbi-blast-2.2.31+-src.tar.gz"
-  version "2.2.31"
-  sha256 "f0960e8af2a6021fde6f2513381493641f687453a804239a7e598649b432f8a5"
-  revision 1
+  url "ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.3.0/ncbi-blast-2.3.0+-src.tar.gz"
+  mirror "http://mirrors.vbi.vt.edu/mirrors/ftp.ncbi.nih.gov/blast/executables/blast+/2.3.0/ncbi-blast-2.3.0+-src.tar.gz"
+  version "2.3.0"
+  sha256 "7ce8dc62f58141b6cdcd56b55ea3c17bea7a672e6256dfd725e6ef94825e94e9"
 
   bottle do
     sha256 "b0e39942bafa2b3305043d5dd43ddc0e63636bfe98342a69502dfa2ac9919eea" => :el_capitan
     sha256 "9518aa8bce05ae78120c1b0d8c2450bc1b117105814404d9cbcc020fa9c4a41b" => :yosemite
     sha256 "b19893de12e222d793c65013904680273e4de920d6b193d2f3bea272e20201df" => :mavericks
   end
-
-  # Fix configure: error: Do not know how to build MT-safe with compiler g++-5 5.1.0
-  fails_with :gcc => "5"
-
-  # Build failure reported to toolbox@ncbi.nlm.nih.gov on 11 May 2015,
-  # patch provided by developers; should be included in next release
-  patch :p0, :DATA
 
   option "without-static", "Build without static libraries & binaries"
   option "with-dll", "Build dynamic libraries"
@@ -39,11 +31,6 @@ class Blast < Formula
   depends_on :python if MacOS.version <= :snow_leopard
 
   def install
-    # Fix error:
-    # /bin/sh: line 2: /usr/bin/basename: No such file or directory
-    # See http://www.ncbi.nlm.nih.gov/viewvc/v1?view=revision&revision=65204
-    inreplace "c++/src/build-system/Makefile.in.top", "/usr/bin/basename", "basename"
-
     # Move libraries to libexec. Libraries and headers conflict with ncbi-c++-toolkit.
     args = %W[--prefix=#{prefix} --libdir=#{libexec} --without-debug --with-mt]
 
@@ -91,25 +78,3 @@ class Blast < Formula
     system bin/"blastn", "-version"
   end
 end
-
-__END__
---- c++/include/corelib/ncbimtx.inl (revision 467211)
-+++ c++/include/corelib/ncbimtx.inl (working copy)
-@@ -388,7 +388,17 @@
-     _ASSERT(m_Lock);
-
-     m_ObjLock.Lock();
--    m_Listeners.remove(TRWLockHolder_ListenerWeakRef(listener));
-+    // m_Listeners.remove(TRWLockHolder_ListenerWeakRef(listener));
-+    // The above gives strange errors about invalid operands to operator==
-+    // with the Apple Developer Tools release containing Xcode 6.3.1 and
-+    // "Apple LLVM version 6.1.0 (clang-602.0.49) (based on LLVM 3.6.0svn)".
-+    // The below workaround should be equivalent.
-+    TRWLockHolder_ListenerWeakRef ref(listener);
-+    TListenersList::iterator it;
-+    while ((it = find(m_Listeners.begin(), m_Listeners.end(), ref))
-+           != m_Listeners.end()) {
-+        m_Listeners.erase(it);
-+    }
-     m_ObjLock.Unlock();
- }
